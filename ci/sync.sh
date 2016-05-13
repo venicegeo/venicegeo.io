@@ -45,4 +45,5 @@ shift $(($OPTIND-1))
 
 dest=s3://$domain
 
+echo "syncing with $dest"
 aws s3 sync $verbose $debug --delete --exclude '*.swp' --exclude '.git*' --exclude '*.sh' --exclude ".DS_Store" $src $dest
