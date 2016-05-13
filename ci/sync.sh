@@ -16,7 +16,7 @@ popd > /dev/null
 # Parameters and options
 opts=hd:vD
 debug=
-domain=dev.venicegeo.io
+[ -z $domain ] && domain=dev.venicegeo.io
 verbose=--only-show-errors
 src=$root/public
 
