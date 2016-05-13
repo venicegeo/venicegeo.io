@@ -1,0 +1,123 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "S3 Website",
+
+  "Parameters": {
+    "Domain": {
+      "Type": "String"
+    },
+    "HostedZoneId": {
+      "Type": "String"
+    }
+  },
+
+  "Resources": {
+
+    "RootRecordSet": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "AliasTarget": {
+          "DNSName": { "Fn::Join": [ "", [ "s3-website-", { "Ref": "AWS::Region" },".amazonaws.com" ] ]},
+          "HostedZoneId": "Z3AQBSTGFYJSTF"
+        },
+        "HostedZoneId": { "Ref": "HostedZoneId" },
+        "Name": { "Ref": "Domain" },
+        "Type": "A"
+      }
+    },
+
+    "WwwRecordSet": {
+      "Type": "AWS::Route53::RecordSet",
+      "Properties": {
+        "AliasTarget": {
+          "DNSName": { "Fn::Join": [ "", [ "s3-website-", { "Ref": "AWS::Region" },".amazonaws.com" ] ]},
+          "HostedZoneId": "Z3AQBSTGFYJSTF"
+        },
+        "HostedZoneId": { "Ref": "HostedZoneId" },
+        "Name": { "Fn::Join": [ "", [ "www.", { "Ref": "Domain" } ]]},
+        "Type": "A"
+      }
+    },
+
+    "RootBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": { "Ref": "Domain" },
+        "WebsiteConfiguration": {
+          "ErrorDocument": "index.html",
+          "IndexDocument": "index.html"
+        }
+      }
+    },
+
+    "WwwBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "BucketName": { "Fn::Join": [ "", [ "www.", { "Ref": "Domain" } ]]},
+        "WebsiteConfiguration": {
+          "RedirectAllRequestsTo": {
+            "HostName": { "Ref": "Domain" }
+          }
+        }
+      }
+    },
+
+    "PublicBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": { "Ref": "RootBucket" },
+        "PolicyDocument": {
+          "Statement": [ {
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [ "s3:GetObject" ],
+            "Resource": [{ "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "RootBucket" } ]]},
+                          { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "RootBucket" }, "/*" ]]}]
+          } ]
+        }
+      }
+    },
+
+    "CIAccessPolicy": {
+      "Type": "AWS::IAM::ManagedPolicy",
+      "Properties": {
+        "Description": "Policy for backup access",
+        "Path": "/",
+        "PolicyDocument": {
+          "Version":"2012-10-17",
+          "Statement": [{
+            "Effect": "Allow",
+            "Action": [ "s3:GetObject", "s3:PutObject", "s3:ListBucket", "s3:DeleteObject" ],
+            "Resource": [ { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "RootBucket" } ]]},
+                           { "Fn::Join": [ "", [ "arn:aws:s3:::", { "Ref": "RootBucket" }, "/*" ]]} ]
+          }]
+        }
+      }
+    },
+
+    "CIUser": {
+      "Type": "AWS::IAM::User",
+      "Properties": {
+        "ManagedPolicyArns": [{ "Ref": "CIAccessPolicy" }]
+      }
+    },
+
+    "CIAccessKey": {
+      "Type": "AWS::IAM::AccessKey",
+      "Properties": {
+        "UserName": { "Ref": "CIUser" }
+      }
+    }
+  },
+
+  "Outputs": {
+    "CIAccessKeyId": {
+      "Description": "Access Key ID with access to the geoserver s3 fs",
+      "Value": { "Ref": "CIAccessKey" }
+    },
+    "CISecretAccessKey": {
+      "Description": "Secret Access Key with access to geoserver s3 fs",
+      "Value": { "Fn::GetAtt": [ "CIAccessKey", "SecretAccessKey" ] }
+    }
+  }
+}
